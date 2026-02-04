@@ -1,4 +1,4 @@
-name: "Release: Stable"
+name: "CD: Stable Release"
 
 on:
   schedule:
@@ -16,12 +16,15 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-stable
+  group: cd-stable
   cancel-in-progress: true
 
 jobs:
+  # ============================================================
+  # Detect latest stable n8n release
+  # ============================================================
   detect:
-    name: Detect Stable Release
+    name: Detect
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.fetch.outputs.version }}
@@ -43,15 +46,30 @@ jobs:
           RELEASE_TAG_PREFIX: n8n-v
         run: ./scripts/check_release_exists.sh
 
+  # ============================================================
+  # Build and push images
+  # ============================================================
   build:
-    name: Build Stable
+    name: Build
     needs: [detect]
     if: needs.detect.outputs.should_build == 'true'
-    uses: ./.github/workflows/build-and-release.yml
+    uses: ./.github/workflows/cd-build.yml
     with:
-      release_type: stable
       version: ${{ needs.detect.outputs.version }}
       version_minor: ${{ needs.detect.outputs.version_minor }}
+      release_type: stable
+      push: true
     secrets:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # ============================================================
+  # Create GitHub Release
+  # ============================================================
+  release:
+    name: Release
+    needs: [detect, build]
+    uses: ./.github/workflows/cd-release.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      release_type: stable

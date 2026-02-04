@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version to release"
+        type: string
+        required: true
+      release_type:
+        description: "Type of release: stable or prerelease"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  # ============================================================
+  # Create GitHub Release
+  # ============================================================
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Release (stable)
+        if: inputs.release_type == 'stable'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "n8n-v${{ inputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --title "n8n ${{ inputs.version }}" \
+            --generate-notes
+
+      - name: Create Release (prerelease)
+        if: inputs.release_type == 'prerelease'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "n8n-pre-v${{ inputs.version }}" \
+            --repo "${{ github.repository }}" \
+            --title "n8n ${{ inputs.version }} (Pre-release)" \
+            --generate-notes \
+            --prerelease

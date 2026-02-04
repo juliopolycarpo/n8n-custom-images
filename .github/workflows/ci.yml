@@ -15,43 +15,16 @@ concurrency:
 
 jobs:
   # ============================================================
-  # Run all linters (reusable workflow)
+  # Lint (reusable workflow)
   # ============================================================
   lint:
     name: Lint
-    uses: ./.github/workflows/lint.yml
-    with:
-      scripts_dir: "./scripts"
+    uses: ./.github/workflows/ci-lint.yml
 
   # ============================================================
-  # Test Docker build (runs after lint passes)
+  # Test (reusable workflow)
   # ============================================================
-  docker-build:
-    name: "Build ${{ matrix.image }}"
-    runs-on: ubuntu-latest
+  test:
+    name: Test
     needs: [lint]
-    strategy:
-      fail-fast: false
-      matrix:
-        image: [n8n-python]
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build image (no push)
-        uses: docker/build-push-action@v5
-        with:
-          context: images/${{ matrix.image }}
-          file: images/${{ matrix.image }}/Dockerfile
-          push: false
-          load: true
-          tags: ${{ matrix.image }}:ci-test
-          build-args: |
-            N8N_VERSION=latest
-
-      - name: Test image
-        run: |
-          docker run --rm --entrypoint="" ${{ matrix.image }}:ci-test python3 --version
-          docker run --rm --entrypoint="" ${{ matrix.image }}:ci-test pip3 --version
+    uses: ./.github/workflows/ci-test.yml

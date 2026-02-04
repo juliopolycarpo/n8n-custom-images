@@ -1,4 +1,4 @@
-name: "Release: Pre-release"
+name: "CD: Pre-release"
 
 on:
   schedule:
@@ -16,12 +16,15 @@ permissions:
   packages: write
 
 concurrency:
-  group: release-prerelease
+  group: cd-prerelease
   cancel-in-progress: true
 
 jobs:
+  # ============================================================
+  # Detect latest pre-release
+  # ============================================================
   detect:
-    name: Detect Pre-release
+    name: Detect
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.fetch.outputs.version }}
@@ -42,14 +45,29 @@ jobs:
           RELEASE_TAG_PREFIX: n8n-pre-v
         run: ./scripts/check_release_exists.sh
 
+  # ============================================================
+  # Build and push images
+  # ============================================================
   build:
-    name: Build Pre-release
+    name: Build
     needs: [detect]
     if: needs.detect.outputs.should_build == 'true'
-    uses: ./.github/workflows/build-and-release.yml
+    uses: ./.github/workflows/cd-build.yml
     with:
-      release_type: prerelease
       version: ${{ needs.detect.outputs.version }}
+      release_type: prerelease
+      push: true
     secrets:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+  # ============================================================
+  # Create GitHub Release
+  # ============================================================
+  release:
+    name: Release
+    needs: [detect, build]
+    uses: ./.github/workflows/cd-release.yml
+    with:
+      version: ${{ needs.detect.outputs.version }}
+      release_type: prerelease
