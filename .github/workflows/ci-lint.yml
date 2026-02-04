@@ -1,4 +1,4 @@
-name: Lint
+name: "CI: Static Analysis"
 
 on:
   workflow_call:
@@ -17,10 +17,10 @@ permissions:
 
 jobs:
   # ============================================================
-  # Lint YAML files
+  # Validate YAML syntax and style
   # ============================================================
-  yamllint:
-    name: YAML
+  yaml-syntax:
+    name: YAML Syntax
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,19 +28,19 @@ jobs:
       - name: Install yamllint
         run: pip install --quiet yamllint
 
-      - name: Run yamllint
+      - name: Validate YAML files against style rules
         run: yamllint -f github .
 
   # ============================================================
-  # Lint shell scripts
+  # Analyze shell scripts for bugs and best practices
   # ============================================================
-  shellcheck:
-    name: Shell
+  shell-analysis:
+    name: Shell Scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run ShellCheck
+      - name: Analyze shell scripts with ShellCheck
         uses: ludeeus/action-shellcheck@master
         with:
           scandir: ${{ inputs.scripts_dir }}
@@ -48,36 +48,36 @@ jobs:
           additional_files: "*.sh"
 
   # ============================================================
-  # Lint Dockerfiles
+  # Lint Dockerfiles for best practices
   # ============================================================
-  hadolint:
-    name: Dockerfile
+  dockerfile-lint:
+    name: Dockerfile Best Practices
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Find Dockerfiles
+      - name: Discover Dockerfiles in repository
         id: find
         run: |
           files=$(find . -name "Dockerfile" -path "${{ inputs.dockerfile_path }}" | tr '\n' ' ')
           echo "files=$files" >> "$GITHUB_OUTPUT"
 
-      - name: Run Hadolint
+      - name: Lint Dockerfiles with Hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: images/n8n-python/Dockerfile
           failure-threshold: error
 
   # ============================================================
-  # Validate JSON files
+  # Validate JSON syntax
   # ============================================================
-  json:
-    name: JSON
+  json-syntax:
+    name: JSON Syntax
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate JSON files
+      - name: Validate JSON files are well-formed
         run: |
           for f in $(find . -name "*.json" -not -path "./.git/*"); do
             echo "Validating $f..."

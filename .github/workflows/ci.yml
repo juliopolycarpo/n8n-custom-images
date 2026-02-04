@@ -15,16 +15,16 @@ concurrency:
 
 jobs:
   # ============================================================
-  # Lint (reusable workflow)
+  # Static Analysis (YAML, Shell, Dockerfile, JSON)
   # ============================================================
   lint:
-    name: Lint
+    name: Static Analysis
     uses: ./.github/workflows/ci-lint.yml
 
   # ============================================================
-  # Test (reusable workflow)
+  # Image Validation (build and functional tests)
   # ============================================================
-  test:
-    name: Test
+  validate:
+    name: Image Validation
     needs: [lint]
     uses: ./.github/workflows/ci-test.yml

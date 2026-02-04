@@ -21,10 +21,10 @@ concurrency:
 
 jobs:
   # ============================================================
-  # Detect latest stable n8n release
+  # Detect latest stable n8n release from npm registry
   # ============================================================
-  detect:
-    name: Detect
+  detect-version:
+    name: Detect Latest Stable
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.fetch.outputs.version }}
@@ -33,11 +33,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Fetch latest stable release
+      - name: Fetch latest stable version from npm
         id: fetch
         run: ./scripts/fetch_latest_stable.sh
 
-      - name: Check if already built
+      - name: Check if release already exists
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -47,16 +47,16 @@ jobs:
         run: ./scripts/check_release_exists.sh
 
   # ============================================================
-  # Build and push images
+  # Build multi-arch images and push to registries
   # ============================================================
-  build:
-    name: Build
-    needs: [detect]
-    if: needs.detect.outputs.should_build == 'true'
+  build-images:
+    name: Build Images
+    needs: [detect-version]
+    if: needs.detect-version.outputs.should_build == 'true'
     uses: ./.github/workflows/cd-build.yml
     with:
-      version: ${{ needs.detect.outputs.version }}
-      version_minor: ${{ needs.detect.outputs.version_minor }}
+      version: ${{ needs.detect-version.outputs.version }}
+      version_minor: ${{ needs.detect-version.outputs.version_minor }}
       release_type: stable
       push: true
     secrets:
@@ -64,14 +64,14 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # ============================================================
-  # Create GitHub Release with checksums
+  # Publish GitHub Release with SHA256 checksums
   # ============================================================
-  release:
-    name: Release
-    needs: [detect, build]
+  publish-release:
+    name: Publish Release
+    needs: [detect-version, build-images]
     uses: ./.github/workflows/cd-release.yml
     with:
-      version: ${{ needs.detect.outputs.version }}
+      version: ${{ needs.detect-version.outputs.version }}
       release_type: stable
     secrets:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}

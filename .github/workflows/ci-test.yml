@@ -1,4 +1,4 @@
-name: Test
+name: "CI: Image Validation"
 
 on:
   workflow_call:
@@ -14,17 +14,17 @@ permissions:
 
 jobs:
   # ============================================================
-  # Load image matrix from images.json
+  # Generate dynamic test matrix from images.json manifest
   # ============================================================
-  prepare:
-    name: Prepare Matrix
+  generate-matrix:
+    name: Generate Test Matrix
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load images.json
+      - name: Load image definitions from manifest
         id: matrix
         run: |
           if [ -n "${{ inputs.image_id }}" ]; then
@@ -35,22 +35,22 @@ jobs:
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   # ============================================================
-  # Build and test each image
+  # Build and validate each image
   # ============================================================
-  test:
-    name: "Test ${{ matrix.id }}"
+  validate-image:
+    name: "Validate ${{ matrix.id }}"
     runs-on: ubuntu-latest
-    needs: [prepare]
+    needs: [generate-matrix]
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: Configure Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build image
+      - name: Build Docker image for validation
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
@@ -59,19 +59,19 @@ jobs:
           load: true
           tags: ${{ matrix.id }}:test
 
-      - name: Test - Container starts
+      - name: Verify container lifecycle (start/stop)
         run: |
           docker run --rm -d --name test-container ${{ matrix.id }}:test
           sleep 5
           docker logs test-container
           docker stop test-container
 
-      - name: Test - Python available
+      - name: Verify Python 3 and pip are installed
         if: contains(matrix.id, 'python')
         run: |
           docker run --rm --entrypoint="" ${{ matrix.id }}:test python3 --version
           docker run --rm --entrypoint="" ${{ matrix.id }}:test pip3 --version
 
-      - name: Test - n8n version
+      - name: Verify n8n CLI responds correctly
         run: |
           docker run --rm --entrypoint="" ${{ matrix.id }}:test n8n --version
