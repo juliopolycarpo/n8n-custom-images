@@ -1,0 +1,10 @@
+{
+  "images": [
+    {
+      "id": "n8n-python",
+      "context": "images/n8n-python",
+      "dockerfile": "images/n8n-python/Dockerfile",
+      "description": "n8n with Python 3 installed for Task Runner support"
+    }
+  ]
+}

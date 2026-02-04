@@ -1,0 +1,54 @@
+name: New Image Request
+description: Request a new n8n image template
+title: "[Image]: "
+labels: ["new-image", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Want a new n8n image with specific tools? Let us know!
+
+  - type: input
+    id: image-name
+    attributes:
+      label: Suggested Image Name
+      description: "e.g., n8n-puppeteer, n8n-ffmpeg"
+      placeholder: "n8n-<tool>"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What should this image include?
+      placeholder: "This image should have..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: packages
+    attributes:
+      label: Required Packages
+      description: List the packages/tools needed
+      placeholder: |
+        - package1
+        - package2
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case
+      description: How will this image be used with n8n?
+      placeholder: "I need this to run workflows that..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: dockerfile
+    attributes:
+      label: Draft Dockerfile (optional)
+      description: If you have a working Dockerfile, share it!
+      render: dockerfile

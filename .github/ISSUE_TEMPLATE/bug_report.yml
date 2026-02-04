@@ -1,0 +1,82 @@
+name: Bug Report
+description: Report a problem with an n8n image
+title: "[Bug]: "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! Please fill out the information below.
+
+  - type: dropdown
+    id: image
+    attributes:
+      label: Image
+      description: Which image are you using?
+      options:
+        - n8n-python
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: tag
+    attributes:
+      label: Image Tag
+      description: "e.g., n8n-v1.34.0, latest"
+      placeholder: "n8n-v1.34.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: registry
+    attributes:
+      label: Registry
+      description: Where did you pull the image from?
+      options:
+        - GHCR (ghcr.io)
+        - Docker Hub
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: What happened? What did you expect?
+      placeholder: "Describe the bug..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Pull image with `docker pull ...`
+        2. Run container with `docker run ...`
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant logs or error messages
+      render: shell
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform
+      description: "e.g., linux/amd64, linux/arm64"
+      placeholder: "linux/amd64"
+
+  - type: input
+    id: docker-version
+    attributes:
+      label: Docker Version
+      description: Output of `docker --version`
+      placeholder: "Docker version 24.0.0"

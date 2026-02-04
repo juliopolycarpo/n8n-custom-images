@@ -1,0 +1,85 @@
+name: Lint
+
+on:
+  workflow_call:
+    inputs:
+      scripts_dir:
+        description: "Directory containing shell scripts"
+        type: string
+        default: "./scripts"
+      dockerfile_path:
+        description: "Path to Dockerfile (or glob pattern)"
+        type: string
+        default: "images/*/Dockerfile"
+
+permissions:
+  contents: read
+
+jobs:
+  # ============================================================
+  # Lint YAML files
+  # ============================================================
+  yamllint:
+    name: YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install --quiet yamllint
+
+      - name: Run yamllint
+        run: yamllint -f github .
+
+  # ============================================================
+  # Lint shell scripts
+  # ============================================================
+  shellcheck:
+    name: Shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: ${{ inputs.scripts_dir }}
+          severity: warning
+          additional_files: "*.sh"
+
+  # ============================================================
+  # Lint Dockerfiles
+  # ============================================================
+  hadolint:
+    name: Dockerfile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find Dockerfiles
+        id: find
+        run: |
+          files=$(find . -name "Dockerfile" -path "${{ inputs.dockerfile_path }}" | tr '\n' ' ')
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: images/n8n-python/Dockerfile
+          failure-threshold: error
+
+  # ============================================================
+  # Validate JSON files
+  # ============================================================
+  json:
+    name: JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate JSON files
+        run: |
+          for f in $(find . -name "*.json" -not -path "./.git/*"); do
+            echo "Validating $f..."
+            jq empty "$f"
+          done
