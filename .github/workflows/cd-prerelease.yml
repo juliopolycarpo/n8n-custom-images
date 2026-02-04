@@ -62,7 +62,7 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   # ============================================================
-  # Create GitHub Release
+  # Create GitHub Release with checksums
   # ============================================================
   release:
     name: Release
@@ -71,3 +71,5 @@ jobs:
     with:
       version: ${{ needs.detect.outputs.version }}
       release_type: prerelease
+    secrets:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}

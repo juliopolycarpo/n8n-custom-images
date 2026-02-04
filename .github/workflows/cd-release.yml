@@ -11,35 +11,89 @@ on:
         description: "Type of release: stable or prerelease"
         type: string
         required: true
+    secrets:
+      DOCKERHUB_USER:
+        required: true
 
 permissions:
   contents: write
+  packages: read
 
 jobs:
   # ============================================================
-  # Create GitHub Release
+  # Create GitHub Release with checksums
   # ============================================================
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
     steps:
-      - name: Create Release (stable)
-        if: inputs.release_type == 'stable'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "n8n-v${{ inputs.version }}" \
-            --repo "${{ github.repository }}" \
-            --title "n8n ${{ inputs.version }}" \
-            --generate-notes
+      - uses: actions/checkout@v4
 
-      - name: Create Release (prerelease)
-        if: inputs.release_type == 'prerelease'
+      - name: Set release tag
+        id: tag
+        run: |
+          if [ "${{ inputs.release_type }}" = "stable" ]; then
+            echo "tag=n8n-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "title=n8n ${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "image_tag=n8n-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=n8n-pre-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+            echo "title=n8n ${{ inputs.version }} (Pre-release)" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "image_tag=n8n-pre-v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate checksums
+        id: checksums
+        run: |
+          # Load images from images.json
+          images=$(jq -r '.images[].id' images/images.json)
+
+          echo "# SHA256 Checksums" > SHA256SUMS
+          echo "# Generated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> SHA256SUMS
+          echo "# Version: ${{ inputs.version }}" >> SHA256SUMS
+          echo "# Release: ${{ inputs.release_type }}" >> SHA256SUMS
+          echo "" >> SHA256SUMS
+
+          for image in $images; do
+            echo "## $image" >> SHA256SUMS
+            echo "" >> SHA256SUMS
+
+            # GHCR
+            ghcr_image="ghcr.io/${{ github.repository_owner }}/${image}:${{ steps.tag.outputs.image_tag }}"
+            echo "Fetching digest for $ghcr_image..."
+            ghcr_digest=$(docker manifest inspect "$ghcr_image" 2>/dev/null | jq -r '.config.digest // .manifests[0].digest' || echo "N/A")
+            echo "ghcr.io: $ghcr_digest" >> SHA256SUMS
+            echo "  $ghcr_image" >> SHA256SUMS
+            echo "" >> SHA256SUMS
+
+            # Docker Hub
+            dockerhub_image="docker.io/${{ secrets.DOCKERHUB_USER }}/${image}:${{ steps.tag.outputs.image_tag }}"
+            echo "Fetching digest for $dockerhub_image..."
+            dockerhub_digest=$(docker manifest inspect "$dockerhub_image" 2>/dev/null | jq -r '.config.digest // .manifests[0].digest' || echo "N/A")
+            echo "docker.io: $dockerhub_digest" >> SHA256SUMS
+            echo "  $dockerhub_image" >> SHA256SUMS
+            echo "" >> SHA256SUMS
+          done
+
+          echo "📄 SHA256SUMS content:"
+          cat SHA256SUMS
+
+      - name: Create Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "n8n-pre-v${{ inputs.version }}" \
+          gh release create "${{ steps.tag.outputs.tag }}" \
             --repo "${{ github.repository }}" \
-            --title "n8n ${{ inputs.version }} (Pre-release)" \
+            --title "${{ steps.tag.outputs.title }}" \
             --generate-notes \
-            --prerelease
+            ${{ steps.tag.outputs.prerelease == 'true' && '--prerelease' || '' }} \
+            SHA256SUMS
