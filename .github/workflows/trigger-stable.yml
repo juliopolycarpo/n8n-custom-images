@@ -11,6 +11,10 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+  packages: write
+
 concurrency:
   group: release-stable
   cancel-in-progress: true
