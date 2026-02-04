@@ -19,6 +19,7 @@ jobs:
   generate-matrix:
     name: Generate Test Matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
@@ -40,6 +41,7 @@ jobs:
   validate-image:
     name: "Validate ${{ matrix.id }}"
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [generate-matrix]
     strategy:
       fail-fast: false
@@ -58,6 +60,8 @@ jobs:
           push: false
           load: true
           tags: ${{ matrix.id }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Verify container lifecycle (start/stop)
         run: |

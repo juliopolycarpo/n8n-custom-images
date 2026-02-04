@@ -26,6 +26,7 @@ jobs:
   detect-version:
     name: Detect Latest Stable
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       version: ${{ steps.fetch.outputs.version }}
       version_minor: ${{ steps.fetch.outputs.version_minor }}
