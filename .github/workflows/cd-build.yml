@@ -1,21 +1,26 @@
-name: Build and Release
+name: "CD: Multi-arch Build"
 
 on:
   workflow_call:
     inputs:
-      release_type:
-        description: "Type of release: stable or prerelease"
-        required: true
-        type: string
       version:
-        description: "Version to build (e.g., 1.76.1 or 2.0.0-beta.1)"
-        required: true
+        description: "n8n version to build"
         type: string
+        required: true
       version_minor:
         description: "Minor version for stable releases (e.g., 1.76)"
-        required: false
         type: string
+        required: false
         default: ""
+      release_type:
+        description: "Type of release: stable or prerelease"
+        type: string
+        required: true
+      push:
+        description: "Push images to registries"
+        type: boolean
+        required: false
+        default: true
     secrets:
       DOCKERHUB_USER:
         required: true
@@ -23,60 +28,64 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
   packages: write
 
 jobs:
   # ============================================================
-  # Prepare image matrix from images.json
+  # Generate build matrix from images.json manifest
   # ============================================================
-  prepare:
-    name: Prepare Matrix
+  generate-matrix:
+    name: Generate Build Matrix
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Load images.json
+      - name: Load image definitions from manifest
         id: matrix
         run: |
           matrix=$(jq -c '{include: .images}' images/images.json)
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   # ============================================================
-  # Build and push images to registries
+  # Build multi-arch images and push to registries
   # ============================================================
-  build:
+  build-and-push:
     name: "Build ${{ matrix.id }}"
     runs-on: ubuntu-latest
-    needs: [prepare]
+    timeout-minutes: 60
+    needs: [generate-matrix]
     strategy:
       fail-fast: false
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU
+      - name: Configure QEMU for multi-arch builds
         uses: docker/setup-qemu-action@v3
 
-      - name: Set up Buildx
+      - name: Configure Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
+      - name: Authenticate to GitHub Container Registry
+        if: inputs.push
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Docker Hub
+      - name: Authenticate to Docker Hub
+        if: inputs.push
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Compute tags (stable)
+      - name: Generate image tags for stable release
         if: inputs.release_type == 'stable'
         id: tags-stable
         run: |
@@ -90,7 +99,7 @@ jobs:
           fi
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Compute tags (prerelease)
+      - name: Generate image tags for prerelease
         if: inputs.release_type == 'prerelease'
         id: tags-prerelease
         run: |
@@ -100,12 +109,12 @@ jobs:
           TAGS="$TAGS,docker.io/${{ secrets.DOCKERHUB_USER }}/${{ matrix.id }}:n8n-pre-v${{ inputs.version }}"
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
 
-      - name: Build and push
+      - name: Build and push multi-arch image
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: true
+          push: ${{ inputs.push }}
           platforms: linux/amd64,linux/arm64
           build-args: |
             N8N_VERSION=${{ inputs.version }}
@@ -115,32 +124,5 @@ jobs:
             org.opencontainers.image.version=${{ inputs.version }}
             org.opencontainers.image.title=${{ matrix.id }}
             org.opencontainers.image.description=${{ matrix.description }}
-
-  # ============================================================
-  # Create GitHub Release
-  # ============================================================
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - name: Create GitHub Release (stable)
-        if: inputs.release_type == 'stable'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "n8n-v${{ inputs.version }}" \
-            --repo "${{ github.repository }}" \
-            --title "n8n ${{ inputs.version }}" \
-            --generate-notes
-
-      - name: Create GitHub Release (prerelease)
-        if: inputs.release_type == 'prerelease'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "n8n-pre-v${{ inputs.version }}" \
-            --repo "${{ github.repository }}" \
-            --title "n8n ${{ inputs.version }} (Pre-release)" \
-            --generate-notes \
-            --prerelease
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
