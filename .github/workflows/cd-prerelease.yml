@@ -31,7 +31,7 @@ jobs:
       version: ${{ steps.fetch.outputs.version }}
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Fetch latest pre-release version from npm
         id: fetch
