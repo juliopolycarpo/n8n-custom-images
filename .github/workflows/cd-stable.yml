@@ -32,7 +32,7 @@ jobs:
       version_minor: ${{ steps.fetch.outputs.version_minor }}
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Fetch latest stable version from npm
         id: fetch
